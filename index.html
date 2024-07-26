@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Roaster</title>
+  <link rel="stylesheet" href="./frontcs.css" />
+  <style>
+    .drag-area {
+      border: 2px dashed #ccc;
+      width: 300px;
+      height: 200px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      margin: 10px;
+      cursor: pointer;
+    }
+    .drag-area.active {
+      background-color: #f3f3f3;
+    }
+    .output-textbox {
+      display: none;
+      margin-top: 20px;
+    }
+    .loader {
+      border: 16px solid #f3f3f3;
+      border-radius: 50%;
+      border-top: 16px solid #3498db;
+      width: 120px;
+      height: 120px;
+      animation: spin 2s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">Resume Roaster</div>
+    <p class="subtitle">Upload your resume and get roasted &#128578;</p>
+
+    <!-- Drag and Drop Area for Resume Upload -->
+    <div class="drag-area">
+      <header>Drag & Drop your Resume Here</header>
+      <span>or</span>
+      <button id="actionButton">Browse File</button>
+      <input type="file" hidden />
+    </div>
+    <div class="upload-info"></div>
+
+    <!-- Loader and Output Box -->
+    <div id="loader-container" style="display: none;">
+      <div class="loader"></div>
+    </div>
+    <div id="outputBox" style="display: none;"></div>
+    <div id="outputTextbox" class="output-textbox" style="display: none;"></div>
+  </div>
+
+  <script>
+    async function uploadFile(file) {
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+      const loaderContainer = document.getElementById("loader-container");
+      const outputBox = document.getElementById("outputBox");
+      const outputTextbox = document.getElementById("outputTextbox");
+
+      loaderContainer.style.display = "flex";
+      outputBox.style.display = "none";
+      outputTextbox.style.display = "none";
+
+      try {
+        const response = await fetch("https://35.188.74.37:5000/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Upload failed");
+        }
+
+        const data = await response.json();
+
+        loaderContainer.style.display = "none";
+        outputBox.style.display = "block";
+        outputTextbox.style.display = "block";
+
+        if (data.roast) {
+          outputTextbox.textContent = data.roast; // Display roast text
+          localStorage.setItem("roast", data.roast); // Save the data in local storage for future use
+        } else {
+          outputBox.textContent = "No roast available, please try again.";
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        loaderContainer.style.display = "none";
+        outputBox.style.display = "block";
+        outputBox.textContent = "An error occurred, please try again.";
+      }
+    }
+
+    const input = document.querySelector(".drag-area input");
+    const actionButton = document.getElementById("actionButton");
+    const dropArea = document.querySelector(".drag-area");
+    const dragText = dropArea.querySelector("header");
+    const uploadInfo = document.querySelector(".upload-info");
+    const outputBox = document.getElementById("outputBox");
+    const outputTextbox = document.getElementById("outputTextbox");
+    const loaderContainer = document.getElementById("loader-container");
+
+    actionButton.onclick = () => {
+      input.click();
+    };
+
+    input.addEventListener("change", function () {
+      const file = this.files[0];
+      if (!file.type.includes("pdf")) {
+        alert("Please upload a PDF file.");
+        return;
+      }
+      console.log("File selected via input:", file.name);
+      handleFileUpload(file);
+    });
+
+    ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+      dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    dropArea.addEventListener("dragover", () => {
+      dropArea.classList.add("active");
+      dragText.textContent = "Release to Upload Resume";
+    });
+
+    dropArea.addEventListener("dragleave", () => {
+      dropArea.classList.remove("active");
+      dragText.textContent = "Drag & Drop your Resume Here";
+    });
+
+    dropArea.addEventListener("drop", (event) => {
+      const file = event.dataTransfer.files[0];
+      if (!file.type.includes("pdf")) {
+        alert("Please upload a PDF file.");
+        return;
+      }
+      console.log("File dropped:", file.name);
+      handleFileUpload(file);
+    });
+
+    function handleFileUpload(file) {
+      const fileReader = new FileReader();
+      fileReader.onload = () => {
+        const fileURL = fileReader.result;
+        const embedTag = '<iframe src="' + fileURL + '" type="application/pdf" style="width: 100%; height: 400px;"></iframe>';
+        uploadInfo.innerHTML = embedTag;
+        dragText.textContent = "Resume Uploaded Successfully";
+        console.log("File uploaded:", file.name);
+        uploadFile(file);
+      };
+      console.log("Reading file:", file.name);
+      fileReader.readAsDataURL(file);
+    }
+
+    // Retrieve data from local storage and display it
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedRoast = localStorage.getItem("roast");
+      if (savedRoast) {
+        outputTextbox.textContent = savedRoast;
+        outputTextbox.style.display = "block";
+        outputBox.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
